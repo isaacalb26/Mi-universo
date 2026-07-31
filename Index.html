@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Mi Universo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      touch-action: none;
+    }
+    body {
+      background-color: #010003;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #modal-inicio {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(12, 3, 20, 0.92);
+      border: 1px solid rgba(255, 105, 180, 0.5);
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(236, 72, 153, 0.6);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      width: 90%;
+      max-width: 380px;
+    }
+
+    #modal-inicio h1 {
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+      color: #ffb7c5;
+    }
+
+    #corazon-icon {
+      font-size: 45px;
+      color: #ff3366;
+      margin-bottom: 15px;
+      animation: beat 1.2s infinite;
+    }
+
+    @keyframes beat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.25); }
+    }
+
+    button {
+      background: linear-gradient(135deg, #e91e63, #9c27b0);
+      color: white;
+      border: none;
+      padding: 12px 26px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(233, 30, 99, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(233, 30, 99, 0.6);
+    }
+
+    #loader {
+      display: none;
+      margin-top: 15px;
+    }
+
+    #progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    #progress {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #ff007f, #7f00ff);
+      transition: width 0.1s linear;
+    }
+
+    #titulo-galaxia {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 2s ease;
+    }
+
+    #titulo-galaxia h2 {
+      font-size: 1.8rem;
+      letter-spacing: 4px;
+      text-shadow: 0 0 15px #ff69b4, 0 0 25px #ff007f;
+    }
+
+    #titulo-galaxia p {
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      color: #ddd;
+      margin-top: 4px;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <div id="modal-inicio">
+    <div id="corazon-icon">❤️</div>
+    <h1 id="texto-bienvenida">Feliz Día de la Novia, Mi Amor</h1>
+    <button id="btn-iniciar" onclick="iniciarCarga()">CLICK AQUÍ MI AMOR</button>
+    
+    <div id="loader">
+      <p id="status-text" style="font-size: 0.85rem; color: #ddd;">Cargando minigalaxias y destellos neón...</p>
+      <div id="progress-bar">
+        <div id="progress"></div>
+      </div>
+      <p id="porcentaje" style="font-size: 0.8rem; margin-top: 5px;">0%</p>
+    </div>
+  </div>
+
+  <div id="titulo-galaxia">
+    <h2>MI UNIVERSO</h2>
+    <p>EXPLORA NUESTRO COSMOS</p>
+  </div>
+
+  <script>
+    const palabras = [
+      "Amor eterno", "Te Amo", "Para siempre", "Mi paraíso",
+      "Pasión", "Constelación", "Tú y yo", "Luz",
+      "Destino", "Sueños", "Magia", "Siempre juntos",
+      "Alma", "Ternura", "Felicidad", "Mi vida"
+    ];
+
+    let scene, camera, renderer, controls, galaxyParticles, heartParticles;
+    const planetas = [];
+    const miniGalaxias = [];
+
+    // Función para generar una textura de partícula neón con resplandor
+    function createGlowTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      gradient.addColorStop(0.3, 'rgba(255, 0, 150, 0.8)');
+      gradient.addColorStop(0.7, 'rgba(120, 0, 255, 0.3)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    function iniciarCarga() {
+      document.getElementById('btn-iniciar').style.display = 'none';
+      document.getElementById('loader').style.display = 'block';
+
+      let porcentaje = 0;
+      const progress = document.getElementById('progress');
+      const porcentajeTexto = document.getElementById('porcentaje');
+
+      const interval = setInterval(() => {
+        porcentaje += 2;
+        progress.style.width = porcentaje + '%';
+        porcentajeTexto.innerText = porcentaje + '%';
+
+        if (porcentaje >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            document.getElementById('modal-inicio').style.display = 'none';
+            document.getElementById('titulo-galaxia').style.opacity = '1';
+            initUniverse();
+          }, 400);
+        }
+      }, 35);
+    }
+
+    function initUniverse() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 5, 15);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      document.body.appendChild(renderer.domElement);
+
+      const particleTexture = createGlowTexture();
+
+      // Configuración de Controles con Límite de Zoom
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.rotateSpeed = 0.8;
+      
+      // LÍMITES DE ZOOM
+      controls.minDistance = 4;   // Límite interno (no atraviesa el corazón/agujero negro)
+      controls.maxDistance = 14;  // Límite externo (no se sale del borde de las partículas)
+
+      // 1. Agujero Negro Central
+      const blackHoleGeo = new THREE.SphereGeometry(1.2, 32, 32);
+      const blackHoleMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const blackHole = new THREE.Mesh(blackHoleGeo, blackHoleMat);
+      scene.add(blackHole);
+
+      // Disco Neón
+      const diskGeo = new THREE.RingGeometry(1.3, 3.2, 64);
+      const diskMat = new THREE.MeshBasicMaterial({ 
+        color: 0xff0088, 
+        side: THREE.DoubleSide, 
+        transparent: true, 
+        opacity: 0.85 
+      });
+      const accretionDisk = new THREE.Mesh(diskGeo, diskMat);
+      accretionDisk.rotation.x = Math.PI / 2.3;
+      scene.add(accretionDisk);
+
+      // 2. Corazón Neón Brillante
+      const heartPointsCount = 1800;
+      const heartGeo = new THREE.BufferGeometry();
+      const heartPositions = new Float32Array(heartPointsCount * 3);
+
+      for (let i = 0; i < heartPointsCount; i++) {
+        const t = Math.PI * 2 * Math.random();
+        let x = 16 * Math.pow(Math.sin(t), 3);
+        let y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+        let z = (Math.random() - 0.5) * 3;
+
+        heartPositions[i * 3] = (x / 11);
+        heartPositions[i * 3 + 1] = (y / 11) + 2.2;
+        heartPositions[i * 3 + 2] = z / 11;
+      }
+
+      heartGeo.setAttribute('position', new THREE.BufferAttribute(heartPositions, 3));
+      const heartMat = new THREE.PointsMaterial({
+        color: 0xff33aa,
+        size: 0.28,
+        map: particleTexture,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      heartParticles = new THREE.Points(heartGeo, heartMat);
+      scene.add(heartParticles);
+
+      // 3. Galaxia Esférica Neón (18,000 Partículas)
+      const particleCount = 18000;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+
+      const colorInside = new THREE.Color('#ff007f');
+      const colorOutside = new THREE.Color('#7f00ff');
+
+      for (let i = 0; i < particleCount; i++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2.0 * Math.PI;
+        const phi = Math.acos(2.0 * v - 1.0);
+        const radius = Math.cbrt(Math.random()) * 10 + 1.2; // Límite en radio ~11.2
+
+        positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta) * 0.75;
+        positions[i * 3 + 2] = radius * Math.cos(phi);
+
+        const mixedColor = colorInside.clone().lerp(colorOutside, radius / 11);
+        colors[i * 3] = mixedColor.r;
+        colors[i * 3 + 1] = mixedColor.g;
+        colors[i * 3 + 2] = mixedColor.b;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const particleMaterial = new THREE.PointsMaterial({
+        size: 0.22,
+        map: particleTexture,
+        vertexColors: true,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      galaxyParticles = new THREE.Points(geometry, particleMaterial);
+      scene.add(galaxyParticles);
+
+      // 4. Creación de Mini Galaxias
+      function buildMiniGalaxy(colorHex, posX, posY, posZ) {
+        const count = 1200;
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+
+        for (let i = 0; i < count; i++) {
+          const r = Math.random() * 1.8;
+          const angle = r * 4 + ((i % 2) * Math.PI);
+          pos[i * 3] = Math.cos(angle) * r + (Math.random() - 0.5) * 0.2;
+          pos[i * 3 + 1] = (Math.random() - 0.5) * 0.2;
+          pos[i * 3 + 2] = Math.sin(angle) * r + (Math.random() - 0.5) * 0.2;
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({
+          color: colorHex,
+          size: 0.18,
+          map: particleTexture,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+
+        const miniG = new THREE.Points(geo, mat);
+        miniG.position.set(posX, posY, posZ);
+        miniG.rotation.x = Math.random() * Math.PI;
+        scene.add(miniG);
+        return miniG;
+      }
+
+      miniGalaxias.push(buildMiniGalaxy(0x00ffff, -6, 4, -4));
+      miniGalaxias.push(buildMiniGalaxy(0xff00e1, 7, -3, -2));
+      miniGalaxias.push(buildMiniGalaxy(0x76ff03, -5, -4, 4));
+      miniGalaxias.push(buildMiniGalaxy(0xffd600, 6, 3, 5));
+
+      // 5. Planetas 3D
+      const coloresPlanetas = [0xff4081, 0x00e5ff, 0xab47bc, 0xffb74d, 0x64ffda];
+      for (let i = 0; i < 5; i++) {
+        const planetGeo = new THREE.SphereGeometry(0.35 + Math.random() * 0.2, 24, 24);
+        const planetMat = new THREE.MeshBasicMaterial({
+          color: coloresPlanetas[i % coloresPlanetas.length],
+          wireframe: true
+        });
+
+        const planet = new THREE.Mesh(planetGeo, planetMat);
+        const dist = 3.2 + i * 1.4;
+        const angle = Math.random() * Math.PI * 2;
+        const inclination = (Math.random() - 0.5) * 1.2;
+
+        if (i % 2 === 0) {
+          const ringGeo = new THREE.RingGeometry(0.45, 0.75, 24);
+          const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+          const ring = new THREE.Mesh(ringGeo, ringMat);
+          ring.rotation.x = Math.PI / 2;
+          planet.add(ring);
+        }
+
+        planetas.push({ mesh: planet, dist: dist, speed: 0.005 + Math.random() * 0.004, angle: angle, inclination: inclination });
+        scene.add(planet);
+      }
+
+      // 6. Palabras Flotantes Neón
+      palabras.forEach((texto, i) => {
+        const canvasText = document.createElement('canvas');
+        const ctx = canvasText.getContext('2d');
+        canvasText.width = 256;
+        canvasText.height = 64;
+
+        ctx.font = 'Bold 22px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ff007f';
+        ctx.shadowBlur = 12;
+        ctx.textAlign = 'center';
+        ctx.fillText(texto, 128, 40);
+
+        const texture = new THREE.CanvasTexture(canvasText);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMat);
+
+        const phi = Math.acos(-1 + (2 * i) / palabras.length);
+        const theta = Math.sqrt(palabras.length * Math.PI) * phi;
+        const radius = 4.2 + Math.random() * 4.2;
+
+        sprite.position.set(
+          radius * Math.cos(theta) * Math.sin(phi),
+          radius * Math.sin(theta) * Math.sin(phi),
+          radius * Math.cos(phi)
+        );
+        sprite.scale.set(3.2, 0.8, 1);
+        scene.add(sprite);
+      });
+
+      // Animación
+      function animate() {
+        requestAnimationFrame(animate);
+
+        galaxyParticles.rotation.y += 0.0012;
+        heartParticles.rotation.y += 0.0025;
+        accretionDisk.rotation.z += 0.004;
+
+        // Rotación de las mini galaxias
+        miniGalaxias.forEach(mg => {
+          mg.rotation.y += 0.005;
+        });
+
+        controls.update();
+
+        planetas.forEach(p => {
+          p.angle += p.speed;
+          p.mesh.position.x = Math.cos(p.angle) * p.dist;
+          p.mesh.position.y = Math.sin(p.angle) * Math.sin(p.inclination) * (p.dist * 0.5);
+          p.mesh.position.z = Math.sin(p.angle) * Math.cos(p.inclination) * p.dist;
+          p.mesh.rotation.y += 0.01;
+        });
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+  </script>
+</body>
+</html>
